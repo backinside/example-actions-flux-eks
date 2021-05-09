@@ -49,6 +49,29 @@ jobs:
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./app
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
+    - name: Checkout
+      uses: actions/checkout@master
+      with:
+        repository: backinside/fluxtest
+        token: ${{ secrets.ACTIONS_TOKEN }}
+        path: ./fluxtest
+
+    - name: Copy/Create file
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        OLDHASH=`cat fluxtest/blob/main/clusters/my-cluster/manifests/deployment.yml | grep "repo1:" | cut -d ':' -f 3-`
+        echo $OLDHASH
+        sed 's/'"$OLDHASH"'/qwe/g' fluxtest/blob/main/clusters/my-cluster/manifests/deployment.yml
+    - name: Push Project B
+      run: |
+        cd ./fluxtest
+        git add .
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git commit -am "File Replicated from Project A"
+        git push
+
     - name: Log out of Amazon ECR
       if: always()
       run: docker logout ${{ steps.login-ecr.outputs.registry }}
