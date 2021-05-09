@@ -18,36 +18,33 @@ env:
   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  CONTAINER_IMAGE: example-eks:${{ github.sha }}
+  CONTAINER_IMAGE: repo1:${{ github.sha }}
 
 jobs:
-  build-and-push:
-    name: Build and deploy
-    runs-on: ubuntu-latest
+  build:
     steps:
+    # see: https://github.com/aws-actions/configure-aws-credentials
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
 
-    - name: Checkout
-      uses: actions/checkout@master
+    # see: https://github.com/aws-actions/amazon-ecr-login
+    - name: Log in to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
 
-    # Add steps here like linting, testing, minification, etc.
-      
-    - name: Setup ECR
+    - name: Build, tag, and push image to Amazon ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: repo1
+        IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Login to AWS ECR
-        $( aws ecr get-login --no-include-email )
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./app
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-    - name: Build and tag the image
-      run: |
-        # Build and tag the image
-        docker build \
-          -t $CONTAINER_IMAGE \
-          -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$CONTAINER_IMAGE ./app
-           
-    # Add additional steps here like scanning of image
-
-    # Only push to registry on master
-    - name: Push
-      if: github.ref == 'refs/heads/master'
-      run: |
-        # Push image to AWS ECR
-        docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$CONTAINER_IMAGE
+    - name: Log out of Amazon ECR
+      if: always()
+      run: docker logout ${{ steps.login-ecr.outputs.registry }}
