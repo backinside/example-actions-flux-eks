@@ -60,9 +60,10 @@ jobs:
       env:
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        OLDHASH=`cat fluxtest/blob/main/clusters/my-cluster/manifests/deployment.yml | grep "repo1:" | cut -d ':' -f 3-`
+        OLDHASH=`cat fluxtest/clusters/my-cluster/manifests/deployment.yml | grep "repo1:" | cut -d ':' -f 3-`
         echo $OLDHASH
-        sed 's/'"$OLDHASH"'/qwe/g' fluxtest/blob/main/clusters/my-cluster/manifests/deployment.yml
+        echo $IMAGE_TAG
+        sed 's/'"$OLDHASH"'/qwe/g' fluxtest/clusters/my-cluster/manifests/deployment.yml
     - name: Push Project B
       run: |
         cd ./fluxtest
