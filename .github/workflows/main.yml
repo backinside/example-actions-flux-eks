@@ -1,0 +1,50 @@
+# build.yml
+on:
+  pull_request:
+    paths:
+    - app/**
+  push:
+    paths:
+    - app/**
+    branches:         # array of glob patterns matching against refs/heads. Optional; defaults to all
+    - master          # triggers on pushes that contain changes in master
+
+name: Build and Push to ECR
+
+# https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
+env:
+  AWS_DEFAULT_REGION: eu-west-1
+  AWS_DEFAULT_OUTPUT: json
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  CONTAINER_IMAGE: repo1:${{ github.sha }}
+
+jobs:
+  build:
+    steps:
+    # see: https://github.com/aws-actions/configure-aws-credentials
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    # see: https://github.com/aws-actions/amazon-ecr-login
+    - name: Log in to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: repo1
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./app
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+    - name: Log out of Amazon ECR
+      if: always()
+      run: docker logout ${{ steps.login-ecr.outputs.registry }}
